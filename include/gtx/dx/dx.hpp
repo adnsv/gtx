@@ -1,9 +1,10 @@
 #pragma once
 
-#include <gtx/dx/factory.hpp>
 #include <comdef.h>
 #include <cstring>
+#include <functional>
 #include <gtx/factory.hpp>
+#include <gtx/dx/macro.hpp>
 #include <stdexcept>
 #include <wrl/client.h>
 
