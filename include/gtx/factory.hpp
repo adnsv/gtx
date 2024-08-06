@@ -47,28 +47,39 @@ struct device_info {
 #elif defined(GTX_VULKAN)
 
 struct device_info {
+    VkAllocationCallbacks const* allocator;
     VkDevice device;
     VkPhysicalDevice physical_device;
     VkQueue graphics_queue;
     VkCommandPool command_pool;
+    VkDescriptorPool descriptor_pool;
+    VkDescriptorSetLayout descriptor_set_layout;
 
     device_info() noexcept {}
 
-    device_info(VkDevice device, VkPhysicalDevice physical_device,
-        VkQueue graphics_queue, VkCommandPool command_pool)
-        : device{device}
+    device_info(VkAllocationCallbacks const* allocator, VkDevice device,
+        VkPhysicalDevice physical_device, VkQueue graphics_queue,
+        VkCommandPool command_pool, VkDescriptorPool descriptor_pool,
+        VkDescriptorSetLayout descriptor_set_layout)
+        : allocator{allocator}
+        , device{device}
         , physical_device{physical_device}
         , graphics_queue{graphics_queue}
         , command_pool{command_pool}
+        , descriptor_pool{descriptor_pool}
+        , descriptor_set_layout{descriptor_set_layout}
     {
     }
 
     template <typename T>
     device_info(T const& other)
-        : device{other.device}
+        : allocator(other.allocator)
+        , device{other.device}
         , physical_device{other.physical_device}
         , graphics_queue{other.graphics_queue}
         , command_pool{other.command_pool}
+        , descriptor_pool{other.descriptor_pool}
+        , descriptor_set_layout{descriptor_set_layout}
     {
     }
 };

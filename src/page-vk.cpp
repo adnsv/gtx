@@ -13,6 +13,14 @@ struct texture::page_data {
     VkDeviceMemory memory;
     VkImageView view;
     VkSampler sampler;
+    VkDescriptorSet descriptor_set;
+
+    ~page_data();
+
+private:
+    factory* factory_;
+    void release();
+    friend struct factory;
 };
 
 struct factory {
@@ -25,11 +33,19 @@ struct factory {
     ~factory();
 
 private:
+    std::vector<std::shared_ptr<texture::page_data>> pages;
+
+    auto new_page(const texture::texel_size& sz,
+        bool wrap) -> std::shared_ptr<texture::page_data>;
+
     device_info info_;
-    VkSampler sampler_;
+    VkSampler border_sampler_;
+    VkSampler repeat_sampler_;
 
-    void set_device(device_info const& info);
+    void set_device(device_info const&);
 
+    friend struct texture::page;
+    friend struct texture::page_data;
     friend void set_device(device_info const&);
     friend auto get_device() -> device_info const&;
 };
@@ -37,26 +53,20 @@ private:
 void set_device(device_info const& info) { factory::get()->set_device(info); }
 auto get_device() -> device_info const& { return factory::get()->info_; }
 
-factory::~factory()
+auto create_sampler(device_info const& d, bool wrap) -> VkSampler
 {
-    if (info_.device && sampler_) {
-        vkDestroySampler(info_.device, sampler_, nullptr);
-        sampler_ = nullptr;
-    }
-}
-
-auto create_sampler(device_info const& d) -> VkSampler
-{
+    auto sam = wrap ? VK_SAMPLER_ADDRESS_MODE_REPEAT
+                    : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     auto si = VkSamplerCreateInfo{};
     si.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     si.magFilter = VK_FILTER_LINEAR;
     si.minFilter = VK_FILTER_LINEAR;
-    si.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    si.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    si.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    si.addressModeU = sam;
+    si.addressModeV = sam;
+    si.addressModeW = sam;
     si.anisotropyEnable = VK_TRUE;
     si.maxAnisotropy = 16.0f;
-    si.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    si.borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
     si.unnormalizedCoordinates = VK_FALSE;
     si.compareEnable = VK_FALSE;
     si.compareOp = VK_COMPARE_OP_ALWAYS;
@@ -67,26 +77,58 @@ auto create_sampler(device_info const& d) -> VkSampler
 
     VkSampler sampler;
 
-    if (vkCreateSampler(d.device, &si, nullptr, &sampler) != VK_SUCCESS)
+    if (vkCreateSampler(d.device, &si, d.allocator, &sampler) != VK_SUCCESS)
         throw std::runtime_error("Failed to create texture sampler!");
 
     return sampler;
 }
 
-void factory::set_device(device_info const& info)
+void release(device_info const& d, VkImage& v)
 {
-    if (info_.device == info.device)
-        return;
-
-    if (info_.device && sampler_) {
-        vkDestroySampler(info_.device, sampler_, nullptr);
-        sampler_ = nullptr;
+    if (v) {
+        vkDestroyImage(d.device, v, d.allocator);
+        v = nullptr;
     }
+}
 
-    info_ = info;
+void release(device_info const& d, VkImageView& v)
+{
+    if (v) {
+        vkDestroyImageView(d.device, v, d.allocator);
+        v = nullptr;
+    }
+}
 
-    if (info_.device)
-        sampler_ = create_sampler(info_);
+void release(device_info const& d, VkDeviceMemory& v)
+{
+    if (v) {
+        vkFreeMemory(d.device, v, d.allocator);
+        v = nullptr;
+    }
+}
+
+void release(device_info const& d, VkBuffer& v)
+{
+    if (v) {
+        vkDestroyBuffer(d.device, v, d.allocator);
+        v = nullptr;
+    }
+}
+
+void release(device_info const& d, VkSampler& v)
+{
+    if (v) {
+        vkDestroySampler(d.device, v, d.allocator);
+        v = nullptr;
+    }
+}
+
+void release(device_info const& d, VkDescriptorSet& v)
+{
+    if (v) {
+        vkFreeDescriptorSets(d.device, d.descriptor_pool, 1, &v);
+        v = nullptr;
+    }
 }
 
 auto begin_single_time_commands(device_info const& d) -> VkCommandBuffer
@@ -138,7 +180,7 @@ auto find_memory_type(device_info const& d, uint32_t typeFilter,
         }
     }
 
-    throw std::runtime_error("Failed to find suitable memory type!");
+    throw std::runtime_error("Failed to find suitable memory type.");
 }
 
 void create_buffer(device_info const& d, VkDeviceSize size,
@@ -151,9 +193,9 @@ void create_buffer(device_info const& d, VkDeviceSize size,
     buffer_info.usage = usage;
     buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (vkCreateBuffer(d.device, &buffer_info, nullptr, &buffer) !=
+    if (vkCreateBuffer(d.device, &buffer_info, d.allocator, &buffer) !=
         VK_SUCCESS) {
-        throw std::runtime_error("Failed to create buffer!");
+        throw std::runtime_error("Failed to create buffer.");
     }
 
     VkMemoryRequirements mem_requirements;
@@ -165,78 +207,85 @@ void create_buffer(device_info const& d, VkDeviceSize size,
     allocate_info.memoryTypeIndex =
         find_memory_type(d, mem_requirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(d.device, &allocate_info, nullptr, &buffer_memory) !=
-        VK_SUCCESS) {
-        throw std::runtime_error("Failed to allocate buffer memory!");
+    if (vkAllocateMemory(d.device, &allocate_info, d.allocator,
+            &buffer_memory) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate buffer memory.");
     }
 
     vkBindBufferMemory(d.device, buffer, buffer_memory, 0);
 }
 
-auto create_image(device_info const& d, uint32_t width, uint32_t height,
+void create_image(device_info const& d, uint32_t width, uint32_t height,
     VkFormat format, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
-    VkDeviceMemory& image_memory) -> VkImage
+    VkImage& image, VkImageView& view, VkDeviceMemory& memory,
+    VkDescriptorSet& ds)
 {
-    VkImageCreateInfo imageInfo{};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = width;
-    imageInfo.extent.height = height;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    imageInfo.format = format;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage = usage;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VkImageCreateInfo image_info{};
+    image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    image_info.imageType = VK_IMAGE_TYPE_2D;
+    image_info.extent.width = width;
+    image_info.extent.height = height;
+    image_info.extent.depth = 1;
+    image_info.mipLevels = 1;
+    image_info.arrayLayers = 1;
+    image_info.format = format;
+    image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    image_info.usage = usage;
+    image_info.samples = VK_SAMPLE_COUNT_1_BIT;
+    image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkImage image;
-    if (vkCreateImage(d.device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create image!");
+    if (vkCreateImage(d.device, &image_info, d.allocator, &image) !=
+        VK_SUCCESS) {
+        throw std::runtime_error("Failed to create image.");
     }
 
-    VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(d.device, image, &memRequirements);
+    VkMemoryRequirements mem_requirements;
+    vkGetImageMemoryRequirements(d.device, image, &mem_requirements);
 
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = find_memory_type(
-        d.physical_device, memRequirements.memoryTypeBits, properties);
+    allocInfo.allocationSize = mem_requirements.size;
+    allocInfo.memoryTypeIndex =
+        find_memory_type(d, mem_requirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(d.device, &allocInfo, nullptr, &image_memory) !=
+    if (vkAllocateMemory(d.device, &allocInfo, d.allocator, &memory) !=
         VK_SUCCESS) {
-        throw std::runtime_error("Failed to allocate image memory!");
+        release(d, image);
+        throw std::runtime_error("Failed to allocate image memory.");
     }
 
-    vkBindImageMemory(d.device, image, image_memory, 0);
+    vkBindImageMemory(d.device, image, memory, 0);
 
-    return image;
-}
+    VkImageViewCreateInfo view_info{};
+    view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    view_info.image = image;
+    view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    view_info.format = format;
+    view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    view_info.subresourceRange.baseMipLevel = 0;
+    view_info.subresourceRange.levelCount = 1;
+    view_info.subresourceRange.baseArrayLayer = 0;
+    view_info.subresourceRange.layerCount = 1;
 
-auto create_image_view(
-    device_info const& d, VkImage image, VkFormat format) -> VkImageView
-{
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = image;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = format;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-
-    VkImageView imageView;
-    if (vkCreateImageView(d.device, &viewInfo, nullptr, &imageView) !=
+    if (vkCreateImageView(d.device, &view_info, d.allocator, &view) !=
         VK_SUCCESS) {
-        throw std::runtime_error("Failed to create texture image view!");
+        release(d, image);
+        release(d, memory);
+        throw std::runtime_error("Failed to create texture image view.");
     }
 
-    return imageView;
+    auto dsa_info = VkDescriptorSetAllocateInfo{};
+    dsa_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    dsa_info.descriptorPool = d.descriptor_pool;
+    dsa_info.descriptorSetCount = 1;
+    dsa_info.pSetLayouts = &d.descriptor_set_layout;
+    if (vkAllocateDescriptorSets(d.device, &dsa_info, &ds) != VK_SUCCESS) {
+        release(d, view);
+        release(d, image);
+        release(d, memory);
+        throw std::runtime_error("Failed to allocate image descriptor set.");
+    }
 }
 
 void update_image_region(device_info const& d, VkImage image,
@@ -308,8 +357,100 @@ void update_image_region(device_info const& d, VkImage image,
 
     end_single_time_commands(d, command_buffer);
 
-    vkDestroyBuffer(d.device, staging_buffer, nullptr);
-    vkFreeMemory(d.device, staging_buffer_memory, nullptr);
+    release(d, staging_buffer);
+    release(d, staging_buffer_memory);
+}
+
+texture::page_data::~page_data() { release(); }
+
+void texture::page_data::release()
+{
+    if (!factory_)
+        return;
+
+    gtx::release(factory_->info_, descriptor_set);
+    gtx::release(factory_->info_, view);
+    gtx::release(factory_->info_, image);
+    gtx::release(factory_->info_, memory);
+    factory_ = nullptr;
+}
+
+factory::~factory()
+{
+    if (info_.device) {
+        for (auto& p : pages)
+            p->release();
+
+        release(info_, border_sampler_);
+        release(info_, repeat_sampler_);
+    }
+}
+
+void factory::set_device(device_info const& d)
+{
+    if (info_.device == d.device)
+        return;
+
+    if (info_.device) {
+        for (auto& p : pages)
+            p->release();
+
+        release(info_, border_sampler_);
+        release(info_, repeat_sampler_);
+    }
+
+    info_ = d;
+}
+
+auto factory::new_page(texture::texel_size const& sz,
+    bool wrap) -> std::shared_ptr<texture::page_data>
+{
+    if (!sz.w || !sz.h)
+        return {};
+
+    VkImage image = nullptr;
+    VkDeviceMemory memory = nullptr;
+    VkImageView view = nullptr;
+    VkDescriptorSet descriptor_set = nullptr;
+    VkSampler sampler_ptr = nullptr;
+
+    try {
+
+        create_image(info_, sz.w, sz.h, VK_FORMAT_R8G8B8A8_UNORM,
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, image, view, memory,
+            descriptor_set);
+
+        if (wrap) {
+            if (!repeat_sampler_)
+                repeat_sampler_ = create_sampler(info_, true);
+            sampler_ptr = repeat_sampler_;
+        }
+        else {
+            if (!border_sampler_)
+                border_sampler_ = create_sampler(info_, false);
+            sampler_ptr = border_sampler_;
+        }
+        auto pd = std::make_shared<texture::page_data>();
+        pd->width = sz.w;
+        pd->height = sz.h;
+        pd->image = image;
+        pd->memory = memory;
+        pd->view = view;
+        pd->sampler = sampler_ptr;
+        pd->descriptor_set = descriptor_set;
+        pd->factory_ = this;
+        pages.push_back(pd);
+        return pd;
+    }
+    catch (std::exception const& err) {
+        release(info_, descriptor_set);
+        release(info_, view);
+        release(info_, image);
+        release(info_, memory);
+        std::printf("[vulkan] ERROR: %s\n", err.what());
+        return {};
+    }
 }
 
 } // namespace gtx

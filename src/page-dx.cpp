@@ -9,13 +9,7 @@ namespace gtx {
 struct factory;
 
 struct texture::page_data {
-    page_data(const page_data&) = delete;
-    page_data(ID3D11ShaderResourceView* srv, texel_size const& sz, bool wrap)
-        : srv{srv}
-        , sz{sz}
-        , wrap{wrap}
-    {
-    }
+    page_data(page_data const&) = delete;
 
     ~page_data()
     {
@@ -26,6 +20,13 @@ struct texture::page_data {
     }
 
 private:
+    page_data(ID3D11ShaderResourceView* srv, texel_size const& sz, bool wrap)
+        : srv{srv}
+        , sz{sz}
+        , wrap{wrap}
+    {
+    }
+
     ID3D11ShaderResourceView* srv = nullptr;
     texel_size sz = {0, 0};
     bool wrap = false;
@@ -56,8 +57,8 @@ private:
     std::vector<std::shared_ptr<texture::page_data>> pages;
     device_info _info;
 
-    auto new_page(texture::texel_size const& sz, bool wrap)
-        -> std::shared_ptr<texture::page_data>;
+    auto new_page(texture::texel_size const& sz,
+        bool wrap) -> std::shared_ptr<texture::page_data>;
 
     void set_device(device_info const& info)
     {
@@ -149,8 +150,8 @@ auto texture::sprite::native_handle() const -> void*
     return nullptr;
 }
 
-auto factory::new_page(texture::texel_size const& sz, bool wrap)
-    -> std::shared_ptr<texture::page_data>
+auto factory::new_page(texture::texel_size const& sz,
+    bool wrap) -> std::shared_ptr<texture::page_data>
 {
     if (!sz.w || !sz.h)
         return {};
