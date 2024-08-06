@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 project(gtx LANGUAGES CXX)
 
 set(GTX_BACKEND "GLAD" CACHE STRING "GTX: backend implementation.")
-set_property(CACHE GTX_BACKEND PROPERTY STRINGS "GLAD" "DX11")
+set_property(CACHE GTX_BACKEND PROPERTY STRINGS "GLAD" "DX11" "VULKAN")
 
 set(GTX_GLAD_LIBRARY "glad" CACHE STRING "GTX: provide the name of GLAD library to use with the GLAD backend.")
 
@@ -36,6 +36,15 @@ elseif(GTX_BACKEND STREQUAL "DX11")
         "src/shader-dx.cpp"
         "src/polyline-hlsl.cpp")
 
+elseif(GTX_BACKEND STREQUAL "VULKAN")
+    message(STATUS "GTX: Using Vulkan")
+    target_compile_definitions(gtx PUBLIC "GTX_VULKAN")
+    find_package(Vulkan REQUIRED)
+    target_link_libraries(gtx PUBLIC "Vulkan::Vulkan")
+    target_sources(gtx PUBLIC
+        "src/page-vk.cpp"
+        "src/shader-vk.cpp"
+    )
 endif()
 
 target_include_directories(gtx PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
