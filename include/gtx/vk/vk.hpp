@@ -16,9 +16,6 @@ private:
     VkSampler vk_sampler_ = nullptr;
 };
 
-auto begin_single_time_commands() -> VkCommandBuffer;
-void end_single_time_commands(VkCommandBuffer);
-
 struct buffer {
     buffer(VkDeviceSize size, VkBufferUsageFlags usage,
         VkMemoryPropertyFlags properties);

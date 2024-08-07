@@ -60,9 +60,7 @@ struct device_info {
     VkDevice device = nullptr;
     VkPhysicalDevice physical_device = nullptr;
     VkQueue graphics_queue = nullptr;
-    VkCommandPool command_pool = nullptr;
     VkDescriptorPool descriptor_pool = nullptr;
-    VkDescriptorSetLayout descriptor_set_layout = nullptr;
 
     device_info() noexcept {}
 
@@ -72,9 +70,7 @@ struct device_info {
         , device{other.device}
         , physical_device{physical_device}
         , graphics_queue{graphics_queue}
-        , command_pool{command_pool}
         , descriptor_pool{descriptor_pool}
-        , descriptor_set_layout{descriptor_set_layout}
     {
     }
 };

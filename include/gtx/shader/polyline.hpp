@@ -34,7 +34,7 @@ struct polyline {
 
     polyline();
     void setup_mvp(mat4x4 const& m);
-    void render(size_t segment_id);
+    void render(std::size_t segment_id);
 
 #if defined(GTX_DIRECTX)
     dx::vertex_shader vertex_shader;
@@ -53,7 +53,7 @@ struct polyline {
     gl::buffer<GL_ARRAY_BUFFER> vertex_buffer;
     gl::vertex_array vertex_array;
 #elif defined(GTX_VULKAN)
-    
+
 
 #endif
 };

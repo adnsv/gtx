@@ -217,12 +217,13 @@ void vk::descriptor_set::update(image_info& img, sampler& smp)
     vkUpdateDescriptorSets(d.device, 1, &writes, 0, nullptr);
 }
 
-auto vk::begin_single_time_commands() -> VkCommandBuffer
+static auto begin_single_time_commands(
+    VkCommandPool command_pool) -> VkCommandBuffer
 {
     auto alloc_info = VkCommandBufferAllocateInfo{};
     alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    alloc_info.commandPool = d.command_pool;
+    alloc_info.commandPool = command_pool;
     alloc_info.commandBufferCount = 1;
 
     auto cb = VkCommandBuffer{};
@@ -237,7 +238,8 @@ auto vk::begin_single_time_commands() -> VkCommandBuffer
     return cb;
 }
 
-void vk::end_single_time_commands(VkCommandBuffer cb)
+static void end_single_time_commands(
+    VkCommandPool command_pool, VkCommandBuffer cb)
 {
     vkEndCommandBuffer(cb);
 
@@ -249,11 +251,12 @@ void vk::end_single_time_commands(VkCommandBuffer cb)
     vkQueueSubmit(d.graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
     vkQueueWaitIdle(d.graphics_queue);
 
-    vkFreeCommandBuffers(d.device, d.command_pool, 1, &cb);
+    vkFreeCommandBuffers(d.device, command_pool, 1, &cb);
 }
 
-static void update_image_region(VkImage image, uint32_t x, uint32_t y,
-    uint32_t w, uint32_t h, uint32_t const* data, std::size_t data_stride)
+static void update_image_region(VkCommandPool command_pool, VkImage image,
+    uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t const* data,
+    std::size_t data_stride)
 {
     VkDeviceSize buffer_size = w * h * sizeof(uint32_t);
 
@@ -272,7 +275,7 @@ static void update_image_region(VkImage image, uint32_t x, uint32_t y,
     }
     vkUnmapMemory(d.device, staging_buffer);
 
-    auto command_buffer = vk::begin_single_time_commands();
+    auto command_buffer = begin_single_time_commands(command_pool);
 
     auto barrier = VkImageMemoryBarrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -316,7 +319,7 @@ static void update_image_region(VkImage image, uint32_t x, uint32_t y,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1,
         &barrier);
 
-    vk::end_single_time_commands(command_buffer);
+    end_single_time_commands(command_pool, command_buffer);
 }
 
 static auto new_page(texture::texel_size const& sz,
@@ -392,5 +395,12 @@ void texture::page::setup(texture::texel_size const& sz, bool wrap)
 }
 
 void texture::page::release_all() { pages.clear(); }
+
+auto texture::sprite::native_handle() const -> void*
+{
+    if (auto pp = pd_.lock())
+        return VkDescriptorSet(pp->ds);
+    return nullptr;
+}
 
 } // namespace gtx

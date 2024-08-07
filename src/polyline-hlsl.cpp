@@ -4,7 +4,7 @@
 
 namespace gtx::shdr {
 
-static void sh_error(const dx::shader_error_info& info)
+static void sh_error(dx::shader_error_info const& info)
 {
     std::printf("shader compile (%s, %s): %s\n%s", info.entry_point,
         info.target, _com_error{info.hr}.ErrorMessage(), info.error_msg);
@@ -207,7 +207,7 @@ polyline::polyline()
 
 void polyline::setup_mvp(mat4x4 const& m) { mvp.update(m.elts); }
 
-void polyline::render(size_t segment_id)
+void polyline::render(std::size_t segment_id)
 {
     auto indices = vertices.segments();
     if (segment_id >= indices.size())

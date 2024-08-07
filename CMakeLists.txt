@@ -34,7 +34,8 @@ elseif(GTX_BACKEND STREQUAL "DX11")
     target_sources(gtx PUBLIC 
         "src/dx.cpp" 
         "src/shader-dx.cpp"
-        "src/polyline-hlsl.cpp")
+        "src/polyline-hlsl.cpp"
+    )
 
 elseif(GTX_BACKEND STREQUAL "VULKAN")
     message(STATUS "GTX: Using Vulkan")
@@ -44,6 +45,7 @@ elseif(GTX_BACKEND STREQUAL "VULKAN")
     target_sources(gtx PUBLIC
         "src/vk.cpp"
         "src/shader-vk.cpp"
+        "src/polyline-vk.cpp"
     )
 endif()
 

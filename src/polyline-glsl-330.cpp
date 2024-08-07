@@ -190,7 +190,7 @@ void polyline::setup_mvp(mat4x4 const& m)
     mvp = m.elts;
 }
 
-void polyline::render(size_t segment_id)
+void polyline::render(std::size_t segment_id)
 {
     auto indices = vertices.segments();
     if (segment_id >= indices.size())
