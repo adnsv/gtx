@@ -4,8 +4,8 @@
 
 namespace gtx::dx {
 
-shader_code::shader_code(const shader_source& source,
-    const D3D_SHADER_MACRO* macros, const char* entry_point, const char* target)
+shader_code::shader_code(shader_source const& source,
+    D3D_SHADER_MACRO const* macros, char const* entry_point, char const* target)
 {
     Microsoft::WRL::ComPtr<ID3DBlob> data;
     check_hr(D3DCompile(source.data.data(), source.data.size(), source.name,
@@ -14,8 +14,8 @@ shader_code::shader_code(const shader_source& source,
     assign(ptr, ptr + data->GetBufferSize());
 }
 
-shader_code::shader_code(const shader_source& source,
-    const D3D_SHADER_MACRO* macros, const char* entry_point, const char* target,
+shader_code::shader_code(shader_source const& source,
+    D3D_SHADER_MACRO const* macros, char const* entry_point, char const* target,
     shader_error_handler on_error)
 {
     Microsoft::WRL::ComPtr<ID3DBlob> data;
@@ -39,7 +39,7 @@ shader_code::shader_code(const shader_source& source,
     }
 }
 
-vertex_shader::vertex_shader(const shader_code& buf)
+vertex_shader::vertex_shader(shader_code const& buf)
 {
     auto device = gtx::get_device().device;
     if (!device)
@@ -55,7 +55,7 @@ void vertex_shader::bind()
         context->VSSetShader(Get(), nullptr, 0);
 }
 
-geometry_shader::geometry_shader(const shader_code& buf)
+geometry_shader::geometry_shader(shader_code const& buf)
 {
     auto device = gtx::get_device().device;
     if (!device)
@@ -94,7 +94,7 @@ void pixel_shader::bind()
         context->PSSetShader(Get(), nullptr, 0);
 }
 
-input_layout::input_layout(const shader_code& buf,
+input_layout::input_layout(shader_code const& buf,
     const std::vector<D3D11_INPUT_ELEMENT_DESC>& descriptors)
 {
     auto device = gtx::get_device().device;

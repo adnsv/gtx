@@ -7,6 +7,7 @@ namespace gtx {
 
 struct texture::page_data {
     texel_size sz = {0, 0};
+    bool wrap = false;
     vk::image_info image;
     vk::descriptor_set ds;
 };
@@ -342,7 +343,7 @@ static auto new_page(texture::texel_size const& sz,
     }
 
     auto p = std::make_shared<texture::page_data>(
-        sz, std::move(info), std::move(ds));
+        sz, wrap, std::move(info), std::move(ds));
     pages.push_back(p);
     return p;
 }
@@ -373,5 +374,23 @@ auto texture::page::native_handle() const -> void*
     }
     return nullptr;
 }
+
+auto texture::page::get_size() const -> texture::texel_size
+{
+    if (auto pp = pd_.lock())
+        return pp->sz;
+    return {0, 0};
+}
+
+void texture::page::setup(texture::texel_size const& sz, bool wrap)
+{
+    if (auto pp = pd_.lock()) {
+        if (pp->sz == sz && pp->wrap == wrap)
+            return;
+    }
+    pd_ = new_page(sz, wrap);
+}
+
+void texture::page::release_all() { pages.clear(); }
 
 } // namespace gtx

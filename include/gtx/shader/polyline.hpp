@@ -1,14 +1,18 @@
 #pragma once
 
 #include <cassert>
-#include <gtx/geom/vec.hpp>
 #include <gtx/geom/mat.hpp>
+#include <gtx/geom/vec.hpp>
 #include <gtx/vlist.hpp>
 
 #if defined(GTX_DIRECTX)
 #include <gtx/dx/dx.hpp>
 #elif defined(GTX_OPENGL)
 #include <gtx/gl/gl.hpp>
+#elif defined(GTX_VULKAN)
+#include <gtx/vk/vk.hpp>
+#else
+#error Undefined GTX implementation
 #endif
 
 namespace gtx::shdr {
@@ -48,6 +52,9 @@ struct polyline {
     gl::uniform mvp;
     gl::buffer<GL_ARRAY_BUFFER> vertex_buffer;
     gl::vertex_array vertex_array;
+#elif defined(GTX_VULKAN)
+    
+
 #endif
 };
 

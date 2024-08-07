@@ -2,8 +2,12 @@
 
 #if defined(GTX_DX11)
 #include <d3d11.h>
+#elif defined(GTX_OPENGL)
+// using stub, nothing to include
 #elif defined(GTX_VULKAN)
 #include <vulkan/vulkan.h>
+#else
+#error Undefined GTX implementation
 #endif
 
 namespace gtx {
