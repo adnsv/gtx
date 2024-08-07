@@ -18,7 +18,7 @@ if(GTX_BACKEND STREQUAL "GLAD")
     target_compile_definitions(gtx PUBLIC "GTX_OPENGL")
     target_compile_definitions(gtx PUBLIC "GTX_GLAD")
     target_link_libraries (gtx PUBLIC "${GTX_GLAD_LIBRARY}" "${OPENGL_gl_LIBRARY}")
-    target_sources(gtx PUBLIC "src/page-gl.cpp")
+    target_sources(gtx PUBLIC "src/gl.cpp")
 
     if(GTX_GLSL_320ES)
         target_sources(gtx PUBLIC "src/polyline-glsl-320es.cpp")
@@ -32,7 +32,7 @@ elseif(GTX_BACKEND STREQUAL "DX11")
     target_compile_definitions(gtx PUBLIC "GTX_DX11")
     target_link_libraries(gtx PUBLIC "d3d11" "dxgi" "D3DCompiler")
     target_sources(gtx PUBLIC 
-        "src/page-dx.cpp" 
+        "src/dx.cpp" 
         "src/shader-dx.cpp"
         "src/polyline-hlsl.cpp")
 
@@ -42,7 +42,7 @@ elseif(GTX_BACKEND STREQUAL "VULKAN")
     find_package(Vulkan REQUIRED)
     target_link_libraries(gtx PUBLIC "Vulkan::Vulkan")
     target_sources(gtx PUBLIC
-        "src/page-vk.cpp"
+        "src/vk.cpp"
         "src/shader-vk.cpp"
     )
 endif()

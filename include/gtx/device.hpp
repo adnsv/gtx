@@ -15,12 +15,15 @@ struct device_info {
     ID3D11DeviceContext* context = nullptr;
 
     device_info() noexcept {}
+    ~device_info();
 
     device_info(ID3D11Device* device, ID3D11DeviceContext* context) noexcept
         : device{device}
         , context{context}
     {
     }
+
+    auto operator=(device_info const&) -> device_info&;
 
     template <typename T>
     device_info(T const& other)
@@ -29,6 +32,8 @@ struct device_info {
     {
     }
 };
+
+auto get_device() -> device_info const&;
 
 #elif defined(GTX_OPENGL)
 
@@ -47,38 +52,24 @@ struct device_info {
 #elif defined(GTX_VULKAN)
 
 struct device_info {
-    VkAllocationCallbacks const* allocator;
-    VkDevice device;
-    VkPhysicalDevice physical_device;
-    VkQueue graphics_queue;
-    VkCommandPool command_pool;
-    VkDescriptorPool descriptor_pool;
-    VkDescriptorSetLayout descriptor_set_layout;
+    VkAllocationCallbacks const* allocator = nullptr;
+    VkDevice device = nullptr;
+    VkPhysicalDevice physical_device = nullptr;
+    VkQueue graphics_queue = nullptr;
+    VkCommandPool command_pool = nullptr;
+    VkDescriptorPool descriptor_pool = nullptr;
+    VkDescriptorSetLayout descriptor_set_layout = nullptr;
 
     device_info() noexcept {}
 
-    device_info(VkAllocationCallbacks const* allocator, VkDevice device,
-        VkPhysicalDevice physical_device, VkQueue graphics_queue,
-        VkCommandPool command_pool, VkDescriptorPool descriptor_pool,
-        VkDescriptorSetLayout descriptor_set_layout)
-        : allocator{allocator}
-        , device{device}
+    template <typename T>
+    device_info(T const& other)
+        : allocator{other.allocator}
+        , device{other.device}
         , physical_device{physical_device}
         , graphics_queue{graphics_queue}
         , command_pool{command_pool}
         , descriptor_pool{descriptor_pool}
-        , descriptor_set_layout{descriptor_set_layout}
-    {
-    }
-
-    template <typename T>
-    device_info(T const& other)
-        : allocator(other.allocator)
-        , device{other.device}
-        , physical_device{other.physical_device}
-        , graphics_queue{other.graphics_queue}
-        , command_pool{other.command_pool}
-        , descriptor_pool{other.descriptor_pool}
         , descriptor_set_layout{descriptor_set_layout}
     {
     }
@@ -90,7 +81,6 @@ struct device_info {
 
 #endif
 
-void set_device(device_info const& info);
-auto get_device() -> device_info const&;
+void set_device(device_info const&);
 
 } // namespace gtx
