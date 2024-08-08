@@ -28,7 +28,12 @@ struct texture::page_data {
 
 std::vector<std::shared_ptr<texture::page_data>> pages;
 
-void set_device(device_info const& info)
+void set_device(device_info const&)
+{
+    // noop for OpenGL
+}
+
+void set_frame(frame_info const&)
 {
     // noop for OpenGL
 }

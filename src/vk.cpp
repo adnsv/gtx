@@ -13,6 +13,8 @@ struct texture::page_data {
 };
 
 device_info d;
+frame_info f;
+std::unique_ptr<vk::descriptor_set_layout> ds_layout;
 
 std::vector<std::shared_ptr<texture::page_data>> pages;
 
@@ -21,14 +23,17 @@ std::shared_ptr<vk::sampler> repeat_sampler;
 
 auto get_device() -> device_info const& { return d; }
 
-void set_device(device_info const& info)
+void set_device(device_info const& v)
 {
     pages.clear();
     border_sampler.reset();
     repeat_sampler.reset();
+    ds_layout.reset();
 
-    d = info;
+    d = v;
 }
+
+void set_frame(frame_info const& v) { f = v; }
 
 auto find_memory_type(
     uint32_t type_filter, VkMemoryPropertyFlags properties) -> uint32_t
@@ -182,15 +187,48 @@ vk::image_info::~image_info()
         vkDestroyImage(d.device, vk_image_, d.allocator);
 }
 
+vk::descriptor_set_layout::descriptor_set_layout()
+{
+    auto const layout_binding = VkDescriptorSetLayoutBinding{
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .pImmutableSamplers = nullptr,
+    };
+    auto const create_info = VkDescriptorSetLayoutCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = nullptr,
+        .bindingCount = 1,
+        .pBindings = &layout_binding,
+    };
+    if (vkCreateDescriptorSetLayout(d.device, &create_info, d.allocator,
+            &vk_descriptor_set_layout_) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create descriptor set layout.");
+}
+
+vk::descriptor_set_layout::~descriptor_set_layout()
+{
+    if (vk_descriptor_set_layout_)
+        vkDestroyDescriptorSetLayout(
+            d.device, vk_descriptor_set_layout_, d.allocator);
+}
+
 vk::descriptor_set::descriptor_set()
 {
+    if (!ds_layout)
+        ds_layout = std::make_unique<vk::descriptor_set_layout>();
+
+    const auto dsl = VkDescriptorSetLayout(*ds_layout);
+
     auto dsa_info = VkDescriptorSetAllocateInfo{};
     dsa_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     dsa_info.descriptorPool = d.descriptor_pool;
     dsa_info.descriptorSetCount = 1;
-    dsa_info.pSetLayouts = &d.descriptor_set_layout;
-    if (vkAllocateDescriptorSets(d.device, &dsa_info, &vk_descriptor_set_) !=
-        VK_SUCCESS)
+    dsa_info.pSetLayouts = &dsl;
+    if (auto err =
+            vkAllocateDescriptorSets(d.device, &dsa_info, &vk_descriptor_set_);
+        err != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate image descriptor set.");
 }
 
@@ -231,7 +269,7 @@ static auto begin_single_time_commands(
 
     auto begin_info = VkCommandBufferBeginInfo{};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
     vkBeginCommandBuffer(cb, &begin_info);
 
@@ -258,7 +296,7 @@ static void update_image_region(VkCommandPool command_pool, VkImage image,
     uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t const* data,
     std::size_t data_stride)
 {
-    VkDeviceSize buffer_size = w * h * sizeof(uint32_t);
+    auto const buffer_size = VkDeviceSize(w * h * sizeof(uint32_t));
 
     auto staging_buffer =
         vk::buffer{buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -277,23 +315,20 @@ static void update_image_region(VkCommandPool command_pool, VkImage image,
 
     auto command_buffer = begin_single_time_commands(command_pool);
 
-    auto barrier = VkImageMemoryBarrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    auto copy_barrier = VkImageMemoryBarrier{};
+    copy_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    copy_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; 
+    copy_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    copy_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    copy_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    copy_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    copy_barrier.image = image;
+    copy_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy_barrier.subresourceRange.levelCount = 1;
+    copy_barrier.subresourceRange.layerCount = 1;
 
-    vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_HOST_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &copy_barrier);
 
     auto region = VkBufferImageCopy{};
     region.bufferOffset = 0;
@@ -310,14 +345,22 @@ static void update_image_region(VkCommandPool command_pool, VkImage image,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
     // Transition image layout back to shader read only optimal
-    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    auto use_barrier = VkImageMemoryBarrier{};
+    use_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    use_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    use_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    use_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    use_barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    use_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    use_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    use_barrier.image = image;
+    use_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    use_barrier.subresourceRange.levelCount = 1;
+    use_barrier.subresourceRange.layerCount = 1;
 
     vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1,
-        &barrier);
+        &use_barrier);
 
     end_single_time_commands(command_pool, command_buffer);
 }
@@ -342,7 +385,7 @@ static auto new_page(texture::texel_size const& sz,
     else {
         if (!border_sampler)
             border_sampler = std::make_shared<vk::sampler>(false);
-        ds.update(info, *repeat_sampler);
+        ds.update(info, *border_sampler);
     }
 
     auto p = std::make_shared<texture::page_data>(
@@ -354,7 +397,7 @@ static auto new_page(texture::texel_size const& sz,
 auto texture::page::update(texture::texel_box const& box, uint32_t const* data,
     size_t data_stride) -> bool
 {
-    if (!data || data_stride < size_t(box.w))
+    if (!data || data_stride < size_t(box.w) || !f.command_pool)
         return false;
 
     if (auto pp = pd_.lock()) {
@@ -362,8 +405,8 @@ auto texture::page::update(texture::texel_box const& box, uint32_t const* data,
         if (box.x + box.w > pd.sz.w || box.y + box.h > pd.sz.h)
             return false;
 
-        update_image_region(
-            VkImage(pd.image), box.x, box.y, box.w, box.h, data, data_stride);
+        update_image_region(f.command_pool, VkImage(pd.image), box.x, box.y,
+            box.w, box.h, data, data_stride);
         return true;
     }
     return false;

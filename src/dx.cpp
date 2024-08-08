@@ -69,6 +69,7 @@ device_info d;
 std::vector<std::shared_ptr<texture::page_data>> pages;
 
 void set_device(device_info const& rhs) { d = rhs; }
+void set_frame(frame_info const&) {}
 auto get_device() -> device_info const& { return d; }
 
 auto new_page(texture::texel_size const& sz,

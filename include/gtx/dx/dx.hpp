@@ -3,7 +3,7 @@
 #include <comdef.h>
 #include <cstring>
 #include <functional>
-#include <gtx/factory.hpp>
+#include <gtx/device.hpp>
 #include <gtx/dx/macro.hpp>
 #include <stdexcept>
 #include <wrl/client.h>

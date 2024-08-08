@@ -37,20 +37,25 @@ struct device_info {
     }
 };
 
+struct frame_info {
+    frame_info() noexcept {}
+
+    template <typename T> frame_info(T const& other) noexcept {}
+};
+
 auto get_device() -> device_info const&;
 
 #elif defined(GTX_OPENGL)
 
 struct device_info {
-    int dummy = 0;
-
     device_info() noexcept {}
 
-    template <typename T>
-    device_info(T const& other)
-        : dummy{other.dummy}
-    {
-    }
+    template <typename T> device_info(T const& other) noexcept {}
+};
+
+struct frame_info {
+    frame_info() noexcept {}
+    template <typename T> frame_info(T const& other) noexcept {}
 };
 
 #elif defined(GTX_VULKAN)
@@ -64,13 +69,27 @@ struct device_info {
 
     device_info() noexcept {}
 
+    device_info(device_info const&) noexcept = default;
+
     template <typename T>
-    device_info(T const& other)
+    device_info(T const& other) noexcept
         : allocator{other.allocator}
         , device{other.device}
-        , physical_device{physical_device}
-        , graphics_queue{graphics_queue}
-        , descriptor_pool{descriptor_pool}
+        , physical_device{other.physical_device}
+        , graphics_queue{other.graphics_queue}
+        , descriptor_pool{other.descriptor_pool}
+    {
+    }
+};
+
+struct frame_info {
+    VkCommandPool command_pool = nullptr;
+
+    frame_info() noexcept {}
+
+    template <typename T>
+    frame_info(T const& other) noexcept
+        : command_pool{other.command_pool}
     {
     }
 };
@@ -82,5 +101,6 @@ struct device_info {
 #endif
 
 void set_device(device_info const&);
+void set_frame(frame_info const&);
 
 } // namespace gtx

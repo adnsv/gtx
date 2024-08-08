@@ -47,6 +47,18 @@ private:
     VkDeviceMemory vk_memory_ = nullptr;
 };
 
+struct descriptor_set_layout {
+    descriptor_set_layout();
+    descriptor_set_layout(descriptor_set_layout&&) = default;
+    descriptor_set_layout(descriptor_set_layout const&) = delete;
+    ~descriptor_set_layout();
+
+    operator VkDescriptorSetLayout() { return vk_descriptor_set_layout_; }
+
+private:
+    VkDescriptorSetLayout vk_descriptor_set_layout_ = nullptr;
+};
+
 struct descriptor_set {
     descriptor_set();
     descriptor_set(descriptor_set&&) = default;
