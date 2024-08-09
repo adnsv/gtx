@@ -39,7 +39,14 @@ elseif(GTX_BACKEND STREQUAL "DX11")
 elseif(GTX_BACKEND STREQUAL "VULKAN")
     message(STATUS "GTX: Using Vulkan")
     target_compile_definitions(gtx PUBLIC "GTX_VULKAN")
-    find_package(Vulkan REQUIRED)
+
+    message(STATUS "_Vulkan_hint_library_search_paths = ${_Vulkan_hint_library_search_paths}")
+
+    # find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
+    find_package(Vulkan REQUIRED COMPONENTS)
+
+    # target_compile_definitions(gtx PUBLIC "GTX_VULKAN_SHADERC")
+
     target_link_libraries(gtx PUBLIC "Vulkan::Vulkan")
     target_sources(gtx PUBLIC
         "src/vk.cpp"

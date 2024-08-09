@@ -1,8 +1,11 @@
 #include <gtx/device.hpp>
 #include <gtx/tx-page.hpp>
 #include <gtx/vk/vk.hpp>
-#include <shaderc/shaderc.hpp>
 #include <stdexcept>
+
+#ifdef GTX_VULKAN_SHADERC
+#include <shaderc/shaderc.hpp>
+#endif
 
 namespace gtx {
 
@@ -497,6 +500,7 @@ auto texture::sprite::native_handle() const -> void*
     return nullptr;
 }
 
+#ifdef GTX_VULKAN_SHADERC
 auto compile_glsl(shaderc_shader_kind kind, char const* name,
     std::string_view code) -> VkShaderModule
 {
@@ -525,12 +529,15 @@ auto compile_glsl(shaderc_shader_kind kind, char const* name,
 
     return s;
 }
+#endif
 
+#ifdef GTX_VULKAN_SHADERC
 vk::shader::shader(
     shaderc_shader_kind kind, char const* name, std::string_view code)
     : vk_module_{compile_glsl(kind, name, code)}
 {
 }
+#endif
 
 vk::shader::shader(shader&& rhs)
     : vk_module_{std::exchange(rhs.vk_module_, nullptr)}

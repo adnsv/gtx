@@ -1,8 +1,11 @@
 #pragma once
 
 #include <gtx/device.hpp>
-#include <shaderc/shaderc.hpp>
 #include <stdexcept>
+
+#ifdef GTX_VULKAN_SHADERC
+#include <shaderc/shaderc.hpp>
+#endif
 
 namespace gtx::vk {
 
@@ -75,7 +78,9 @@ private:
 };
 
 struct shader {
+#ifdef GTX_VULKAN_SHADERC
     shader(shaderc_shader_kind kind, char const* name, std::string_view code);
+#endif
     shader(shader&&);
     shader(shader const&) = delete;
     ~shader();
