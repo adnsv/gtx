@@ -17,14 +17,14 @@ if(GTX_BACKEND STREQUAL "GLAD")
     endif()
     target_compile_definitions(gtx PUBLIC "GTX_OPENGL")
     target_compile_definitions(gtx PUBLIC "GTX_GLAD")
-    target_link_libraries (gtx PUBLIC "${GTX_GLAD_LIBRARY}" "${OPENGL_gl_LIBRARY}")
-    target_sources(gtx PUBLIC "src/gl.cpp")
-
     if(GTX_GLSL_320ES)
-        target_sources(gtx PUBLIC "src/polyline-glsl-320es.cpp")
-    else()
-        target_sources(gtx PUBLIC "src/polyline-glsl-330.cpp")
+        target_compile_definitions(gtx PUBLIC "GTX_GLSL_320ES")
     endif()
+    target_link_libraries (gtx PUBLIC "${GTX_GLAD_LIBRARY}" "${OPENGL_gl_LIBRARY}")
+    target_sources(gtx PUBLIC 
+        "src/gl.cpp" 
+        "src/gl-polyline.cpp"
+    )
 
 elseif(GTX_BACKEND STREQUAL "DX11")
     message(STATUS "GTX: Using DirectX 11")
@@ -33,8 +33,7 @@ elseif(GTX_BACKEND STREQUAL "DX11")
     target_link_libraries(gtx PUBLIC "d3d11" "dxgi" "D3DCompiler")
     target_sources(gtx PUBLIC 
         "src/dx.cpp" 
-        "src/shader-dx.cpp"
-        "src/polyline-hlsl.cpp"
+        "src/dx-polyline.cpp"
     )
 
 elseif(GTX_BACKEND STREQUAL "VULKAN")
@@ -44,8 +43,7 @@ elseif(GTX_BACKEND STREQUAL "VULKAN")
     target_link_libraries(gtx PUBLIC "Vulkan::Vulkan")
     target_sources(gtx PUBLIC
         "src/vk.cpp"
-        "src/shader-vk.cpp"
-        "src/polyline-vk.cpp"
+        "src/vk-polyline.cpp"
     )
 endif()
 

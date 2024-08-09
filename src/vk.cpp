@@ -1,6 +1,7 @@
 #include <gtx/device.hpp>
 #include <gtx/tx-page.hpp>
 #include <gtx/vk/vk.hpp>
+#include <shaderc/shaderc.hpp>
 #include <stdexcept>
 
 namespace gtx {
@@ -494,6 +495,52 @@ auto texture::sprite::native_handle() const -> void*
     if (auto pp = pd_.lock())
         return VkDescriptorSet(pp->ds);
     return nullptr;
+}
+
+auto compile_glsl(shaderc_shader_kind kind, char const* name,
+    std::string_view code) -> VkShaderModule
+{
+    auto compiler = shaderc::Compiler{};
+    auto options = shaderc::CompileOptions{};
+    auto m = compiler.CompileGlslToSpv(
+        code.data(), code.size(), kind, name, options);
+
+    auto status = m.GetCompilationStatus();
+    if (status != shaderc_compilation_status_success) {
+        auto msg = std::string{"Failed to compile shader: "};
+        msg += m.GetErrorMessage();
+        throw std::runtime_error(msg);
+    }
+
+    auto info = VkShaderModuleCreateInfo{};
+    info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    info.codeSize = (m.cend() - m.cbegin()) *
+                    sizeof(shaderc::SpvCompilationResult::element_type);
+    info.pCode = m.cbegin();
+
+    auto s = VkShaderModule{};
+    if (auto err = vkCreateShaderModule(d.device, &info, d.allocator, &s);
+        err != VK_ACCESS_2_NONE)
+        throw std::runtime_error("Failed to create shader module.");
+
+    return s;
+}
+
+vk::shader::shader(
+    shaderc_shader_kind kind, char const* name, std::string_view code)
+    : vk_module_{compile_glsl(kind, name, code)}
+{
+}
+
+vk::shader::shader(shader&& rhs)
+    : vk_module_{std::exchange(rhs.vk_module_, nullptr)}
+{
+}
+
+vk::shader::~shader()
+{
+    if (vk_module_)
+        vkDestroyShaderModule(d.device, vk_module_, d.allocator);
 }
 
 } // namespace gtx

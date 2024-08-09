@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gtx/device.hpp>
+#include <shaderc/shaderc.hpp>
 #include <stdexcept>
 
 namespace gtx::vk {
@@ -71,6 +72,18 @@ struct descriptor_set {
 
 private:
     VkDescriptorSet vk_descriptor_set_ = nullptr;
+};
+
+struct shader {
+    shader(shaderc_shader_kind kind, char const* name, std::string_view code);
+    shader(shader&&);
+    shader(shader const&) = delete;
+    ~shader();
+
+    operator VkShaderModule() { return vk_module_; }
+
+private:
+    VkShaderModule vk_module_ = nullptr;
 };
 
 } // namespace gtx::vk

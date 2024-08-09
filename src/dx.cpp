@@ -1,8 +1,10 @@
 #include <gtx/device.hpp>
+#include <gtx/dx/dx.hpp>
 #include <gtx/tx-page.hpp>
 
 #include <cstring>
 #include <d3d11.h>
+#include <d3dcompiler.h>
 
 namespace gtx {
 
@@ -172,6 +174,105 @@ auto texture::sprite::native_handle() const -> void*
     if (auto pp = pd_.lock())
         return (void*)intptr_t(pp->srv);
     return nullptr;
+}
+
+dx::shader_code::shader_code(shader_source const& source,
+    D3D_SHADER_MACRO const* macros, char const* entry_point, char const* target)
+{
+    Microsoft::WRL::ComPtr<ID3DBlob> data;
+    check_hr(D3DCompile(source.data.data(), source.data.size(), source.name,
+        macros, nullptr, entry_point, target, 0, 0, &data, nullptr));
+    auto ptr = reinterpret_cast<uint8_t*>(data->GetBufferPointer());
+    assign(ptr, ptr + data->GetBufferSize());
+}
+
+dx::shader_code::shader_code(shader_source const& source,
+    D3D_SHADER_MACRO const* macros, char const* entry_point, char const* target,
+    shader_error_handler on_error)
+{
+    Microsoft::WRL::ComPtr<ID3DBlob> data;
+    Microsoft::WRL::ComPtr<ID3DBlob> error;
+    auto hr = D3DCompile(source.data.data(), source.data.size(), source.name,
+        macros, nullptr, entry_point, target, 0, 0, &data, &error);
+
+    if (FAILED(hr)) {
+        data.Reset();
+        auto msg =
+            error ? reinterpret_cast<const char*>(error->GetBufferPointer())
+                  : "unknown";
+        if (on_error)
+            on_error({hr, msg, entry_point, target});
+    }
+    else {
+        auto ptr = reinterpret_cast<uint8_t*>(data->GetBufferPointer());
+        assign(ptr, ptr + data->GetBufferSize());
+        data.Reset();
+        error.Reset();
+    }
+}
+
+dx::vertex_shader::vertex_shader(shader_code const& buf)
+{
+    if (!d.device)
+        throw error("missing device");
+    check_hr(d.device->CreateVertexShader(
+        buf.data(), buf.size(), nullptr, GetAddressOf()));
+};
+
+void dx::vertex_shader::bind()
+{
+    if (d.context)
+        d.context->VSSetShader(Get(), nullptr, 0);
+}
+
+dx::geometry_shader::geometry_shader(shader_code const& buf)
+{
+    if (!d.device)
+        throw error("missing device");
+    check_hr(d.device->CreateGeometryShader(
+        buf.data(), buf.size(), nullptr, GetAddressOf()));
+};
+
+void dx::geometry_shader::bind()
+{
+    if (d.context)
+        d.context->GSSetShader(Get(), nullptr, 0);
+}
+
+void dx::geometry_shader::unbind()
+{
+    if (d.context)
+        d.context->GSSetShader(nullptr, nullptr, 0);
+}
+
+dx::pixel_shader::pixel_shader(const shader_code& buf)
+{
+    if (!d.device)
+        throw error("missing device");
+    check_hr(d.device->CreatePixelShader(
+        buf.data(), buf.size(), nullptr, GetAddressOf()));
+};
+
+void dx::pixel_shader::bind()
+{
+    if (d.context)
+        d.context->PSSetShader(Get(), nullptr, 0);
+}
+
+dx::input_layout::input_layout(shader_code const& buf,
+    const std::vector<D3D11_INPUT_ELEMENT_DESC>& descriptors)
+{
+    if (!d.device)
+        throw error("missing device");
+    check_hr(d.device->CreateInputLayout(descriptors.data(),
+        static_cast<UINT>(descriptors.size()), buf.data(), buf.size(),
+        GetAddressOf()));
+}
+
+void dx::input_layout::bind()
+{
+    if (d.context)
+        d.context->IASetInputLayout(Get());
 }
 
 } // namespace gtx
