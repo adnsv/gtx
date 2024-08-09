@@ -80,8 +80,8 @@ struct page {
     static void release_all();
 
     void setup(texel_size const& sz, bool wrap = false);
-    auto update(texel_box const& box, uint32_t const* data, size_t data_stride)
-        -> bool;
+    auto update(texel_box const& box, uint32_t const* data,
+        size_t data_stride_bytes) -> bool;
 
     auto update(surface<uint32_t> const& surf) -> bool
     {

@@ -7,7 +7,7 @@ namespace gtx::vk {
 
 struct sampler {
     sampler(bool wrap);
-    sampler(sampler&&) = default;
+    sampler(sampler&&);
     sampler(sampler const&) = delete;
     ~sampler();
     operator VkSampler() { return vk_sampler_; }
@@ -19,7 +19,7 @@ private:
 struct buffer {
     buffer(VkDeviceSize size, VkBufferUsageFlags usage,
         VkMemoryPropertyFlags properties);
-    buffer(buffer&&) = default;
+    buffer(buffer&&);
     buffer(buffer const&) = delete;
     ~buffer();
 
@@ -34,7 +34,7 @@ private:
 struct image_info {
     image_info(uint32_t width, uint32_t height, VkFormat format,
         VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
-    image_info(image_info&&) = default;
+    image_info(image_info&&);
     image_info(image_info const&) = delete;
     ~image_info();
 
@@ -49,7 +49,7 @@ private:
 
 struct descriptor_set_layout {
     descriptor_set_layout();
-    descriptor_set_layout(descriptor_set_layout&&) = default;
+    descriptor_set_layout(descriptor_set_layout&&);
     descriptor_set_layout(descriptor_set_layout const&) = delete;
     ~descriptor_set_layout();
 
@@ -61,7 +61,7 @@ private:
 
 struct descriptor_set {
     descriptor_set();
-    descriptor_set(descriptor_set&&) = default;
+    descriptor_set(descriptor_set&&);
     descriptor_set(descriptor_set const&) = delete;
     ~descriptor_set();
 
