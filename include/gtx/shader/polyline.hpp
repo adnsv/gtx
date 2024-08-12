@@ -52,12 +52,16 @@ struct polyline {
     gl::uniform mvp;
     gl::buffer<GL_ARRAY_BUFFER> vertex_buffer;
     gl::vertex_array vertex_array;
-    
-#elif defined(GTX_VULKAN)
-    vk::shader vertex_shader;
-    vk::shader geometry_shader;
-    vk::shader fragment_shader;
 
+#elif defined(GTX_VULKAN)
+    ~polyline();
+
+    //vk::buffer uniform_buffer_;
+    //VkDescriptorSetLayout descriptor_set_layout_ = nullptr;
+    //VkDescriptorPool descriptor_pool_ = nullptr;
+    //VkDescriptorSet descriptor_set_ = nullptr;
+    VkPipelineLayout pipeline_layout_ = nullptr;
+    VkPipeline pipeline_ = nullptr;
 #endif
 };
 

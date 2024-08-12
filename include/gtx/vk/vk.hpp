@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gtx/device.hpp>
+#include <span>
 #include <stdexcept>
 
 #ifdef GTX_VULKAN_SHADERC
@@ -81,6 +82,7 @@ struct shader {
 #ifdef GTX_VULKAN_SHADERC
     shader(shaderc_shader_kind kind, char const* name, std::string_view code);
 #endif
+    shader(std::span<uint32_t const> compiled_shader);
     shader(shader&&);
     shader(shader const&) = delete;
     ~shader();

@@ -1,5 +1,10 @@
+#version 450 core
 
-layout(set = 0, binding = 0) uniform mvp_block {
+//layout(set = 0, binding = 0) uniform mvp_block {
+//    mat4 mvp;
+//};
+
+layout(push_constant) uniform mvp_block { 
     mat4 mvp;
 };
 

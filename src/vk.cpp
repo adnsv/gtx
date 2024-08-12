@@ -57,6 +57,14 @@ auto find_memory_type(
     throw std::runtime_error("Failed to find suitable memory type.");
 }
 
+auto must_descriptor_set_layout() -> VkDescriptorSetLayout
+{
+    if (!ds_layout)
+        ds_layout = std::make_unique<vk::descriptor_set_layout>();
+
+    return VkDescriptorSetLayout(*ds_layout);
+}
+
 vk::sampler::sampler(bool wrap)
 {
     auto sam = wrap ? VK_SAMPLER_ADDRESS_MODE_REPEAT
@@ -245,10 +253,7 @@ vk::descriptor_set_layout::~descriptor_set_layout()
 
 vk::descriptor_set::descriptor_set()
 {
-    if (!ds_layout)
-        ds_layout = std::make_unique<vk::descriptor_set_layout>();
-
-    const auto dsl = VkDescriptorSetLayout(*ds_layout);
+    const auto dsl = must_descriptor_set_layout();
 
     auto dsa_info = VkDescriptorSetAllocateInfo{};
     dsa_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -500,6 +505,21 @@ auto texture::sprite::native_handle() const -> void*
     return nullptr;
 }
 
+auto create_glsl_shader_module(std::span<uint32_t const> compiled_code)
+{
+    auto info = VkShaderModuleCreateInfo{};
+    info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    info.codeSize = compiled_code.size() * sizeof(uint32_t);
+    info.pCode = compiled_code.data();
+
+    auto s = VkShaderModule{};
+    if (auto err = vkCreateShaderModule(d.device, &info, d.allocator, &s);
+        err != VK_ACCESS_2_NONE)
+        throw std::runtime_error("Failed to create shader module.");
+
+    return s;
+}
+
 #ifdef GTX_VULKAN_SHADERC
 auto compile_glsl(shaderc_shader_kind kind, char const* name,
     std::string_view code) -> VkShaderModule
@@ -539,8 +559,8 @@ vk::shader::shader(
 }
 #endif
 
-vk::shader::shader(shader&& rhs)
-    : vk_module_{std::exchange(rhs.vk_module_, nullptr)}
+vk::shader::shader(std::span<uint32_t const> compiled_code)
+    : vk_module_{create_glsl_shader_module(compiled_code)}
 {
 }
 

@@ -84,12 +84,14 @@ struct device_info {
 
 struct frame_info {
     VkCommandPool command_pool = nullptr;
+    VkCommandBuffer command_buffer = nullptr;
 
     frame_info() noexcept {}
 
     template <typename T>
     frame_info(T const& other) noexcept
         : command_pool{other.command_pool}
+        , command_buffer{other.command_buffer}
     {
     }
 };
