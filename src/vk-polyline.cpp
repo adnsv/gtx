@@ -206,8 +206,10 @@ polyline::polyline()
     info.pColorBlendState = &blend_info;
     info.pDynamicState = &dynamic_state;
     info.layout = pipeline_layout_;
-    info.renderPass = renderPass;
-    info.subpass = subpass;
+    info.renderPass = d.render_pass;
+    //info.subpass = ???
+    
+    if (vkCreateGraphicsPipelines(d.device, d.pipeline_cache, 1, &info, d.allocator, &pipeline_) != VK_SUCCESS)
 }
 
 polyline::~polyline()

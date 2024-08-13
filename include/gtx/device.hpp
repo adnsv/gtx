@@ -65,7 +65,9 @@ struct device_info {
     VkDevice device = nullptr;
     VkPhysicalDevice physical_device = nullptr;
     VkQueue graphics_queue = nullptr;
+    VkPipelineCache pipeline_cache = nullptr;
     VkDescriptorPool descriptor_pool = nullptr;
+    VkRenderPass render_pass = nullptr;
 
     device_info() noexcept {}
 
@@ -77,7 +79,9 @@ struct device_info {
         , device{other.device}
         , physical_device{other.physical_device}
         , graphics_queue{other.graphics_queue}
+        , pipeline_cache{other.pipeline_cache}
         , descriptor_pool{other.descriptor_pool}
+        , render_pass{other.render_pass}
     {
     }
 };
