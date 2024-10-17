@@ -7,8 +7,8 @@ namespace gtx::shdr {
 
 static void sh_error(dx::shader_error_info const& info)
 {
-    std::printf("shader compile (%s, %s): %s\n%s", info.entry_point,
-        info.target, _com_error{info.hr}.ErrorMessage(), info.error_msg);
+    std::printf("shader compile (%s, %s): 0x%08X\n%s", info.entry_point,
+        info.target, info.hr, info.error_msg);
     exit(-1);
 }
 
