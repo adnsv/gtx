@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <comdef.h>
 #include <cstring>
 #include <functional>
